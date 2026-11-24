@@ -1,0 +1,33 @@
+{
+  "name": "tracking-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file-if-exists=.env dist/server.js",
+    "typecheck": "tsc --noEmit",
+    "create-admin": "tsx --env-file-if-exists=.env src/scripts/create-admin.ts",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@fastify/helmet": "^13.2.0",
+    "@fastify/jwt": "^10.2.7",
+    "@fastify/multipart": "^10.1.9",
+    "@fastify/rate-limit": "^11.2.2",
+    "fastify": "^5.12.8",
+    "ioredis": "^6.0.0",
+    "mongoose": "^9.12.1",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "mongodb-memory-server": "^11.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}

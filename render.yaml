@@ -1,0 +1,49 @@
+# Render Blueprint: the backend API and its cache, both in the SAME region.
+# Create your MongoDB Atlas cluster in that region too (Frankfurt = AWS eu-central-1).
+#
+# A region cannot be changed after a service is created, so pick it now:
+#   frankfurt | virginia | ohio | oregon | singapore
+#
+# Deploy: Render dashboard -> New -> Blueprint -> select this repository.
+
+services:
+  - type: web
+    name: tracking-backend
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: node dist/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: INSTANCE_ID
+        value: render-backend
+      - key: MONGODB_URI
+        sync: false # Render asks you for this when you create the Blueprint
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGO_MAX_POOL_SIZE
+        value: "20"
+      - key: SITE_URL
+        sync: false # the website's address, e.g. https://westbridgeinternationallogistics.com (used for email links and the logo)
+      - key: RESEND_API_KEY
+        sync: false # from resend.com (the domain is already verified there)
+      - key: MAIL_FROM
+        value: Westbridge International Logistics <info@westbridgeinternationallogistics.com>
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: tracking-cache
+          property: connectionString
+
+  - type: keyvalue
+    name: tracking-cache
+    plan: free
+    region: frankfurt
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: [] # reachable only from your own Render services

@@ -1,0 +1,428 @@
+@import "tailwindcss";
+
+/* Design tokens. Use them as classes: bg-ink, bg-paper, text-mist ... */
+@theme inline {
+  --font-sans: var(--font-body-raw), system-ui, sans-serif;
+  --font-mono: var(--font-mono-raw), ui-monospace, monospace;
+
+  /* Brand colours, taken from the logo: deep navy and orange. */
+  --color-ink: #0c1626; /* darkest navy: dark sections, footer, body text */
+  --color-ink-line: #243249; /* borders on dark */
+  --color-navy: #182a48; /* logo navy: headings and strong text on white */
+  --color-orange: #eb5f1e; /* logo orange: accents, labels, icons, highlights */
+  --color-paper: #f6f5f2; /* soft off-white section background */
+  --color-mist: #a4adbb; /* muted text on dark */
+  --color-whatsapp: #25d366;
+}
+
+/* Glass: a see-through, blurred surface. Needs a photo or colour behind it to show. */
+@utility glass {
+  background-color: rgb(255 255 255 / 0.1);
+  border: 1px solid rgb(255 255 255 / 0.22);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* Darker glass: stays readable with white text over light sections too (the header). */
+@utility glass-dark {
+  background-color: rgb(10 15 20 / 0.55);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Entrance animation; stagger with style={{ animationDelay }}. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Scroll reveal: hidden until the Reveal component adds .is-shown. */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.reveal.is-shown {
+  opacity: 1;
+  transform: none;
+}
+
+/* Hero photo: a very slow push-in so the hero never feels frozen. */
+@keyframes slow-zoom {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
+.slow-zoom {
+  animation: slow-zoom 28s ease-out both;
+}
+
+/* ---- Customer shipment page ---- */
+
+/* Parcel rides the progress track to the current step. */
+.parcel-ride {
+  transition: left 1.8s cubic-bezier(0.45, 0, 0.2, 1);
+}
+
+.parcel-progress {
+  transition: width 1.8s cubic-bezier(0.45, 0, 0.2, 1);
+}
+
+/* Drops in from above with a small bounce. */
+@keyframes parcel-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-70px) rotate(-8deg);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(6px) rotate(2deg);
+  }
+  80% {
+    transform: translateY(-3px) rotate(-1deg);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.parcel-drop {
+  animation: parcel-drop 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) 0.15s both;
+}
+
+/* The lid pops open and shut once, right after landing. */
+@keyframes parcel-lid {
+  0%,
+  100% {
+    transform: none;
+  }
+  40%,
+  60% {
+    transform: translate(-3px, -9px) rotate(-14deg);
+  }
+}
+
+.parcel-lid {
+  transform-box: fill-box;
+  transform-origin: 0% 100%;
+  animation: parcel-lid 0.9s ease-in-out 1s both;
+}
+
+/* Gentle bob while it waits at its step. */
+@keyframes parcel-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.parcel-bob {
+  animation: parcel-bob 2.4s ease-in-out 3s infinite;
+}
+
+.parcel-shadow {
+  animation: parcel-shadow 2.4s ease-in-out 3s infinite;
+}
+
+@keyframes parcel-shadow {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scaleX(0.8);
+    opacity: 0.55;
+  }
+}
+
+/* A delivery issue: a small worried wobble every few seconds. */
+@keyframes parcel-wobble {
+  0%,
+  70%,
+  100% {
+    transform: none;
+  }
+  76% {
+    transform: rotate(-7deg);
+  }
+  82% {
+    transform: rotate(6deg);
+  }
+  88% {
+    transform: rotate(-4deg);
+  }
+  94% {
+    transform: rotate(2deg);
+  }
+}
+
+.parcel-wobble {
+  transform-origin: 50% 100%;
+  animation: parcel-wobble 3.2s ease-in-out 2s infinite;
+}
+
+/* "Hello! Here's your shipment": each word fades up in turn. */
+@keyframes word-up {
+  from {
+    opacity: 0;
+    transform: translateY(0.45em);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+.word-up {
+  display: inline-block;
+  animation: word-up 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Package photo card popping up above the parcel. */
+/* Centring is done by Tailwind's -translate-x-1/2 (the separate `translate` property),
+   so these keyframes only move vertically and scale. */
+@keyframes parcel-pop {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.parcel-pop {
+  transform-origin: 50% 100%;
+  animation: parcel-pop 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+/* "Click here" label above the parcel (only when there are photos): appears once the parcel arrives, then bounces. */
+@keyframes parcel-hint {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.parcel-hint {
+  animation:
+    word-up 0.5s ease-out 3s both,
+    parcel-hint 1.6s ease-in-out 3.5s infinite;
+}
+
+/* Loading: the parcel hops while we look the shipment up. */
+@keyframes parcel-hop {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  35% {
+    transform: translateY(-16px) rotate(-6deg);
+  }
+  55% {
+    transform: translateY(0) rotate(3deg);
+  }
+}
+
+.parcel-hop {
+  animation: parcel-hop 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .parcel-ride,
+  .parcel-progress {
+    transition: none;
+  }
+  .parcel-drop,
+  .parcel-lid,
+  .parcel-bob,
+  .parcel-shadow,
+  .parcel-wobble,
+  .word-up,
+  .parcel-hop,
+  .parcel-pop,
+  .parcel-hint {
+    animation: none;
+  }
+}
+
+/* Vehicle marker on the tracking map: an orange dot with a truck, pulsing. */
+.map-vehicle {
+  position: relative;
+  width: 36px;
+  height: 36px;
+}
+
+.map-vehicle-dot {
+  position: absolute;
+  inset: 4px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--color-orange);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.35);
+}
+
+.map-vehicle-pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgb(235 95 30 / 0.45);
+  animation: map-pulse 1.8s ease-out infinite;
+}
+
+@keyframes map-pulse {
+  from {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+/* Header logo intro: bridge rises in, road drives across it left to right, then the name slides in. */
+@keyframes logo-bridge-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes logo-road-in {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes logo-word-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes logo-road-glow {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.4) drop-shadow(0 0 6px rgb(235 95 30 / 0.8));
+  }
+}
+
+.logo-bridge {
+  transform-origin: 50% 100%;
+  animation: logo-bridge-in 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
+}
+
+.logo-road {
+  animation: logo-road-in 0.9s cubic-bezier(0.6, 0, 0.2, 1) 0.75s both;
+}
+
+.logo-word {
+  animation: logo-word-in 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) 1.35s both;
+}
+
+.group\/logo:hover .logo-road {
+  animation: logo-road-glow 1.2s ease-in-out infinite;
+}
+
+/* Hero "WELCOME": each letter rises in bright, holds, then settles to a faint watermark. */
+@keyframes welcome-letter {
+  0% {
+    opacity: 0;
+    transform: translateY(0.3em) scale(0.92);
+    filter: blur(12px);
+  }
+  30% {
+    opacity: 0.9;
+    transform: none;
+    filter: blur(0);
+  }
+  65% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0.08;
+  }
+}
+
+.welcome-letter {
+  opacity: 0.08;
+  animation: welcome-letter 3.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-bridge,
+  .logo-road,
+  .logo-word,
+  .welcome-letter {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .rise,
+  .slow-zoom {
+    animation: none;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
