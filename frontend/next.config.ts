@@ -4,7 +4,14 @@ import type { NextConfig } from "next";
 // - Local development: the rewrite below forwards /api to the backend on port 4000.
 // - Docker / production: the load balancer routes /api to the backend pool before
 //   the request ever reaches Next.js.
-const apiTarget = process.env.API_PROXY_TARGET ?? "http://localhost:4000";
+// On Vercel the backend's address must be set, or every /api request (sign-in included) goes nowhere.
+if (process.env.VERCEL && !process.env.API_PROXY_TARGET?.trim()) {
+  throw new Error(
+    "API_PROXY_TARGET is not set. In Vercel: Settings -> Environment Variables -> add API_PROXY_TARGET = your Render address (e.g. https://westbridge-shipment.onrender.com), then redeploy.",
+  );
+}
+// Forgive the usual slips: spaces, a trailing slash, or "/api" on the end.
+const apiTarget = (process.env.API_PROXY_TARGET?.trim() || "http://localhost:4000").replace(/\/+$/, "").replace(/\/api$/, "");
 
 const nextConfig: NextConfig = {
   // Small self-contained server build, used by the Dockerfile.
