@@ -120,8 +120,10 @@ export async function login(email: string, password: string): Promise<string> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  const data = (await response.json().catch(() => ({}))) as { token?: string; error?: string };
+  const data = (await response.json().catch(() => null)) as { token?: string; error?: string } | null;
   if (response.status === 429) throw new Error("Too many attempts. Please wait a minute and try again.");
+  // No JSON answer means the request never reached our server (wrong API_PROXY_TARGET, or it's down/asleep).
+  if (!data) throw new Error(`Couldn't reach the server (error ${response.status}). Wait a minute and try again; if it keeps happening, the website's connection to the backend needs checking.`);
   if (!response.ok || !data.token) throw new Error(data.error ?? "Sign-in failed.");
   return data.token;
 }
