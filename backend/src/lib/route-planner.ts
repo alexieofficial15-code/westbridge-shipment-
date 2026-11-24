@@ -1,33 +1,45 @@
 import type { Types } from "mongoose";
 import type { HubKind } from "../models/hub.model.js";
 import type { ServiceType, ShipmentStatus } from "../models/shipment.model.js";
+import { type AutoHub, autoAirport, autoCitiesOnTheWay, autoOffice, autoPort } from "./auto-hubs.js";
 import { distanceKm, type LatLng } from "./geo.js";
 
 /**
  * Plans the stops a shipment passes through, the way courier networks do:
- * sender's area -> nearest hub -> hubs along the way -> hub nearest the receiver -> receiver's area.
+ * sender's area -> sorting hub -> hubs along the way -> hub nearest the receiver -> receiver's area.
  *
- *  - Road and door-to-door go office to office, adding offices that lie roughly on the way.
- *  - Air goes via the airport nearest the sender and the airport nearest the receiver.
+ *  - Road and door-to-door go hub to hub, adding hubs that lie roughly on the way.
+ *  - Air goes via the main airport for the sender and the main airport for the receiver.
  *  - Sea does the same with seaports.
- * If a shipment's two ends share the same airport or port, it falls back to road.
+ * Hubs come from the dashboard (Hubs page) where there is one near enough; everywhere else they
+ * are picked automatically for that country (see auto-hubs.ts), so every route works worldwide.
+ * If a shipment's two ends share the same airport or port, it goes by road instead.
  * If either end has no map position, the route is just the two ends.
  */
 
+/** A hub the admin added on the Hubs page. */
 export type PlannerHub = { id: Types.ObjectId; name: string; kind: HubKind; location: LatLng };
 export type RouteStop = { kind: "origin" | "hub" | "destination"; label: string; hub?: Types.ObjectId; location?: LatLng };
 type End = { label: string; location?: LatLng };
+/** A chosen stop: one of the admin's hubs (with its id) or an automatic one. */
+type Stop = { key: string; name: string; location: LatLng; id?: Types.ObjectId };
 
 // A hub counts as "on the way" if visiting it adds at most this share of the direct distance.
 const CORRIDOR_SHARE = 0.15;
 const MAX_HUBS_ON_THE_WAY = 3;
+// The admin's own hubs are used when they're this close; otherwise an automatic one is picked.
+const OWN_OFFICE_KM = 100;
+const OWN_GATEWAY_KM = 150;
 
-function nearest(hubs: PlannerHub[], point: LatLng): PlannerHub | undefined {
+const fromAdmin = (hub: PlannerHub): Stop => ({ key: String(hub.id), name: hub.name, location: hub.location, id: hub.id });
+const fromAuto = (hub: AutoHub): Stop => ({ key: hub.key, name: hub.name, location: hub.location });
+
+function nearestWithin(hubs: PlannerHub[], point: LatLng, maxKm: number): PlannerHub | undefined {
   let best: PlannerHub | undefined;
-  let bestKm = Number.POSITIVE_INFINITY;
+  let bestKm = maxKm;
   for (const hub of hubs) {
     const km = distanceKm(hub.location, point);
-    if (km < bestKm) {
+    if (km <= bestKm) {
       best = hub;
       bestKm = km;
     }
@@ -35,47 +47,57 @@ function nearest(hubs: PlannerHub[], point: LatLng): PlannerHub | undefined {
   return best;
 }
 
-function roadPath(pool: PlannerHub[], a: LatLng, b: LatLng): PlannerHub[] {
-  const first = nearest(pool, a);
-  const last = nearest(pool, b);
-  if (!first || !last) return [];
-  const direct = distanceKm(a, b);
-  const onTheWay = pool
-    .filter((hub) => hub !== first && hub !== last)
-    .filter((hub) => distanceKm(a, hub.location) + distanceKm(hub.location, b) - direct <= direct * CORRIDOR_SHARE)
-    .sort((x, y) => distanceKm(a, x.location) - distanceKm(a, y.location))
-    .slice(0, MAX_HUBS_ON_THE_WAY);
-  return [first, ...onTheWay, last];
-}
-
 export function planRoute(from: End, to: End, service: ServiceType, hubs: PlannerHub[]): RouteStop[] {
   const origin: RouteStop = { kind: "origin", label: from.label, ...(from.location ? { location: from.location } : {}) };
   const destination: RouteStop = { kind: "destination", label: to.label, ...(to.location ? { location: to.location } : {}) };
-  if (!from.location || !to.location || hubs.length === 0) return [origin, destination];
+  if (!from.location || !to.location) return [origin, destination];
 
   const a = from.location;
   const b = to.location;
   const offices = hubs.filter((hub) => hub.kind === "office");
-  const roadPool = offices.length > 0 ? offices : hubs;
+  const office = (point: LatLng): Stop => {
+    const own = nearestWithin(offices, point, OWN_OFFICE_KM);
+    return own ? fromAdmin(own) : fromAuto(autoOffice(point));
+  };
+  const gateway = (kind: "airport" | "port", point: LatLng): Stop => {
+    const own = nearestWithin(
+      hubs.filter((hub) => hub.kind === kind),
+      point,
+      OWN_GATEWAY_KM,
+    );
+    return own ? fromAdmin(own) : fromAuto(kind === "airport" ? autoAirport(point) : autoPort(point));
+  };
 
-  const gatewayKind: HubKind | null = service === "air" ? "airport" : service === "sea" ? "port" : null;
-  const gateways = gatewayKind ? hubs.filter((hub) => hub.kind === gatewayKind) : [];
-  const gwA = nearest(gateways, a);
-  const gwB = nearest(gateways, b);
-
-  let path: PlannerHub[];
-  if (gwA && gwB && !gwA.id.equals(gwB.id)) {
-    path = [nearest(offices, a), gwA, gwB, nearest(offices, b)].filter((hub): hub is PlannerHub => Boolean(hub));
-  } else {
-    path = roadPath(roadPool, a, b);
+  const first = office(a);
+  const last = office(b);
+  let path: Stop[] = [];
+  const gatewayKind = service === "air" ? "airport" : service === "sea" ? "port" : null;
+  if (gatewayKind) {
+    const gwA = gateway(gatewayKind, a);
+    const gwB = gateway(gatewayKind, b);
+    // Two different gateways a reasonable way apart; otherwise it goes by road.
+    if (gwA.key !== gwB.key && distanceKm(gwA.location, gwB.location) > 50) path = [first, gwA, gwB, last];
+  }
+  if (path.length === 0) {
+    const direct = distanceKm(a, b);
+    const inCorridor = (point: LatLng) => distanceKm(a, point) + distanceKm(point, b) - direct <= direct * CORRIDOR_SHARE;
+    const ownOnTheWay = offices
+      .filter((hub) => String(hub.id) !== first.key && String(hub.id) !== last.key && inCorridor(hub.location))
+      .map(fromAdmin);
+    const avoid = [a, b, first.location, last.location, ...ownOnTheWay.map((stop) => stop.location)];
+    const autoOnTheWay = autoCitiesOnTheWay(a, b, CORRIDOR_SHARE, MAX_HUBS_ON_THE_WAY, avoid).map(fromAuto);
+    const onTheWay = [...ownOnTheWay, ...autoOnTheWay]
+      .sort((x, y) => distanceKm(a, x.location) - distanceKm(a, y.location))
+      .slice(0, MAX_HUBS_ON_THE_WAY);
+    path = [first, ...onTheWay, last];
   }
 
-  // The same hub twice in a row (e.g. the sender's nearest office is also the receiver's) is one stop.
-  const stops = path.filter((hub, index) => index === 0 || !hub.id.equals(path[index - 1]!.id));
+  // The same hub twice in a row (e.g. both ends share a sorting hub) is one stop.
+  const stops = path.filter((stop, index) => index === 0 || stop.key !== path[index - 1]!.key);
 
   return [
     origin,
-    ...stops.map((hub): RouteStop => ({ kind: "hub", label: hub.name, hub: hub.id, location: hub.location })),
+    ...stops.map((stop): RouteStop => ({ kind: "hub", label: stop.name, ...(stop.id ? { hub: stop.id } : {}), location: stop.location })),
     destination,
   ];
 }

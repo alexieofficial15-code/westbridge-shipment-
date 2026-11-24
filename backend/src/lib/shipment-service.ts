@@ -77,7 +77,36 @@ export async function routeBetween(sender: ClientRecord, receiver: ClientRecord,
   );
 }
 
-const isDuplicateKey = (error: unknown) =>
+/**
+ * After a client's address changes: plans the route again for their shipments that are still
+ * waiting to be picked up (and not being simulated). Shipments already on the move keep theirs.
+ * Returns how many were updated.
+ */
+export async function replanWaitingShipments(clientId: Types.ObjectId): Promise<number> {
+  const waiting = (await Shipment.find({
+    $or: [{ sender: clientId }, { receiver: clientId }],
+    status: "pending",
+    "simulation.active": { $ne: true },
+  }).lean()) as unknown as ShipmentRecord[];
+  let updated = 0;
+  for (const shipment of waiting) {
+    const [sender, receiver] = (await Promise.all([
+      Client.findById(shipment.sender).lean(),
+      Client.findById(shipment.receiver).lean(),
+    ])) as unknown as [ClientRecord | null, ClientRecord | null];
+    if (!sender || !receiver) continue;
+    const route = await routeBetween(sender, receiver, shipment.service);
+    await Shipment.updateOne(
+      { _id: shipment._id, status: "pending" },
+      { $set: { route, currentStop: 0, "events.0.location": route[0]!.label } },
+    );
+    await forgetCachedShipment(shipment.trackingNumber);
+    updated++;
+  }
+  return updated;
+}
+
+const isDuplicateKey =(error: unknown) =>
   typeof error === "object" && error !== null && (error as { code?: number }).code === 11000;
 
 export async function createShipment(input: {

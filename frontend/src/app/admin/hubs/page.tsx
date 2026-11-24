@@ -78,7 +78,7 @@ export default function HubsPage() {
     <>
       <PageHeader
         title="Hubs"
-        subtitle="Your offices, warehouses, airports and ports. New shipments are routed through the nearest ones automatically."
+        subtitle="Optional. Routes already use the usual sorting hubs, airports and seaports for every country automatically. Add your own offices, warehouses, airports or ports here and they're used instead wherever they're nearby."
       />
 
       {notice && (

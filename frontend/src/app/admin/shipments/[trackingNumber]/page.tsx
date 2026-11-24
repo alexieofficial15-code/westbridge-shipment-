@@ -1036,7 +1036,7 @@ function RouteCard({ shipment, onUpdated, say, fail }: SectionProps) {
   return (
     <Card
       title="Route"
-      description="Planned automatically from the clients' addresses and your hubs. You can also set the hubs by hand."
+      description="Planned automatically from the clients' addresses: the usual sorting hubs, airports or seaports for each country (or your own hubs where you've added them). You can also set the hubs by hand."
       className="mt-6"
       action={
         <div className="flex gap-2">

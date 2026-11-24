@@ -15,6 +15,8 @@ export type Client = {
   location?: Point;
   geocodeStatus: "ok" | "failed" | "manual";
   createdAt: string;
+  /** After an address edit: how many waiting shipments got a new route. */
+  routesUpdated?: number;
 };
 
 export type ClientInput = { name: string; email: string; phone: string; address: Address; location?: Point };

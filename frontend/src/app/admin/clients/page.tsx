@@ -63,7 +63,11 @@ export default function ClientsPage() {
                 text:
                   saved.geocodeStatus === "failed"
                     ? `${saved.name} was saved, but the address wasn't found on the map. Edit the client to enter coordinates, or routes will only show city level.`
-                    : `${saved.name} was saved and placed on the map.`,
+                    : `${saved.name} was saved and placed on the map.${
+                        saved.routesUpdated
+                          ? ` The route of ${saved.routesUpdated} shipment${saved.routesUpdated === 1 ? "" : "s"} waiting for pickup was planned again from the new address.`
+                          : ""
+                      }`,
               });
               void load();
             }}

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { geocodeAddress } from "../lib/geocode.js";
+import { replanWaitingShipments } from "../lib/shipment-service.js";
 import { Client } from "../models/client.model.js";
 import { Shipment } from "../models/shipment.model.js";
 import { escapeRegex, firstIssue, latLng, objectId, optionalText, pagination, requiredText } from "./validation.js";
@@ -83,7 +84,9 @@ export async function clientRoutes(app: FastifyInstance): Promise<void> {
 
     const client = await Client.findByIdAndUpdate(params.data.id, update, { returnDocument: "after", runValidators: true }).lean();
     if (!client) return reply.code(404).send({ error: "Client not found" });
-    return client;
+    // New address: the route of their shipments that haven't left yet is planned again from it.
+    const routesUpdated = changes.address || location ? await replanWaitingShipments(client._id) : 0;
+    return { ...client, routesUpdated };
   });
 
   // A client used on any shipment can't be deleted, so no shipment loses its sender or receiver.
